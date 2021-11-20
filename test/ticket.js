@@ -3,7 +3,7 @@ const chai = require("chai");
 chai.should();
 
 contract("Ticket", function (accounts) {
-  const [dealer, organizer] = accounts;
+  const [dealer, organizer, account1, account2] = accounts;
   beforeEach(async () => {
     this.ticket = await Ticket.new(
       dealer,
@@ -11,7 +11,7 @@ contract("Ticket", function (accounts) {
       100,
       false,
       10,
-      100,
+      2,
       "test",
       "tst"
     );
@@ -29,9 +29,34 @@ contract("Ticket", function (accounts) {
     price.toString().should.be.eq("100");
     resell.should.be.eq(false);
     resellPercentage.toString().should.be.eq("10");
-    capacity.toString().should.be.eq("100");
+    capacity.toString().should.be.eq("2");
     eventName.should.be.eq("test");
     eventSymbol.should.be.eq("tst");
     soldOut.should.be.eq(false);
+  });
+
+  it("Should create a new token when correct details given ", async () => {
+    const attendeeFullName = "mofe";
+    const attendee = account1;
+    const response = await this.ticket.createToken(attendeeFullName, attendee, {
+      from: attendee,
+    });
+    const events = response["logs"];
+    let ticketSaleEvent;
+    events.forEach((event) => {
+      if (event["event"] === "TicketSale") {
+        ticketSaleEvent = event;
+      }
+    });
+    ticketSaleEvent.should.not.be.eq(undefined);
+    const eventArgs = ticketSaleEvent["args"];
+    const ticketId = eventArgs["0"].toString();
+    const assignedOwner = await this.ticket.ownerOf(ticketId);
+    assignedOwner.should.be.eq(attendee);
+    const dealerApproved = await this.ticket.isApprovedForAll(
+      assignedOwner,
+      dealer
+    );
+    dealerApproved.should.be.eq(true);
   });
 });

@@ -67,6 +67,7 @@ contract Ticket is ERC721 {
         setApprovalForAll(dealer, true);
         Guest memory newGuest = Guest(attendeeFullName);
         GuestList[ticketId] = newGuest;
+        emit TicketSale(ticketId, attendeeAddress);
         return ticketId;
     }
 }
