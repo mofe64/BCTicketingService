@@ -55,6 +55,7 @@ contract Ticket is ERC721 {
         capacity = _capacity;
         resellPercentage = _resellPercentage;
         soldOut = false;
+        ticketsSold = 0;
     }
 
     function createToken(
@@ -67,7 +68,12 @@ contract Ticket is ERC721 {
         setApprovalForAll(dealer, true);
         Guest memory newGuest = Guest(attendeeFullName);
         GuestList[ticketId] = newGuest;
+        ticketsSold = ticketsSold + 1;
         emit TicketSale(ticketId, attendeeAddress);
+        if (ticketsSold == capacity) {
+            soldOut = true;
+            emit TicketsSoldOut(block.timestamp);
+        }
         return ticketId;
     }
 }

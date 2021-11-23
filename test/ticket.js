@@ -1,4 +1,5 @@
 const Ticket = artifacts.require("Ticket");
+const truffleAssert = require("truffle-assertions");
 const chai = require("chai");
 chai.should();
 
@@ -58,5 +59,36 @@ contract("Ticket", function (accounts) {
       dealer
     );
     dealerApproved.should.be.eq(true);
+  });
+
+  it("should revert if ticket sold out ", async () => {
+    const attendeeFullName = "mofe";
+    const attendee = account1;
+    const response = await this.ticket.createToken(attendeeFullName, attendee, {
+      from: attendee,
+    });
+    const response2 = await this.ticket.createToken(
+      attendeeFullName,
+      attendee,
+      {
+        from: attendee,
+      }
+    );
+    const events = response2["logs"];
+    let soldOutEvent;
+    events.forEach((event) => {
+      if (event["event"] === "TicketsSoldOut") {
+        soldOutEvent = event;
+      }
+    });
+    soldOutEvent.should.not.be.eq(undefined);
+    // console.log(soldOutEvent["args"][0].toString());
+    await truffleAssert.reverts(
+      this.ticket.createToken(attendeeFullName, attendee, {
+        from: attendee,
+      })
+    );
+    const eventSoldOut = await this.ticket.soldOut.call();
+    eventSoldOut.should.be.eq(true);
   });
 });
