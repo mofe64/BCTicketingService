@@ -32,6 +32,7 @@ contract Market is ReentrancyGuard {
     mapping(uint256 => EventDetails) public eventsList;
 
     mapping(address => EventDetails[]) public eventToUserMapping;
+    EventDetails[] public allEvents;
 
     modifier onlyOwner() {
         require(msg.sender == owner, "This function is restricted to admins");
@@ -93,6 +94,8 @@ contract Market is ReentrancyGuard {
 
         //add event details to event array mapped to the current msg.sender
         eventToUserMapping[msg.sender].push(details);
+        //add event to list of events;
+        allEvents.push(details);
         return address(eventTicket);
     }
 
@@ -102,6 +105,10 @@ contract Market is ReentrancyGuard {
         returns (EventDetails[] memory)
     {
         return eventToUserMapping[organizer];
+    }
+
+    function getAllEvents() public view returns (EventDetails[] memory) {
+        return allEvents;
     }
 
     function purchaseEventTicket(
