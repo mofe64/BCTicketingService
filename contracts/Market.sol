@@ -20,6 +20,7 @@ contract Market is ReentrancyGuard {
         uint256 price;
         bool exists;
         bool completed;
+        uint256 id;
     }
 
     uint256 public listingFee = 0.00024 ether;
@@ -83,7 +84,8 @@ contract Market is ReentrancyGuard {
             soldOut: false,
             price: _ticketPrice,
             exists: true,
-            completed: false
+            completed: false,
+            id: eventId
         });
 
         //map eventid to event details struct
