@@ -8,7 +8,8 @@
     "dev": "nodemon server.js",
     "compile": "truffle compile",
     "test": "mocha --exit --timeout 10000",
-    "contract-test": "truffle test"
+    "contract-test": "truffle test",
+    "verify":"truffle run verify Market --network rinkeby"
   },
   "keywords": [],
   "author": "",

@@ -4,13 +4,17 @@ pragma abicoder v2;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "./Ticket.sol";
 
-contract Market is ReentrancyGuard {
+contract Market {
+    using SafeMath for uint256;
     using Counters for Counters.Counter;
+
     Counters.Counter private _eventIds;
+
     address payable public owner;
+
     struct EventDetails {
         string name;
         string symbol;
@@ -21,18 +25,27 @@ contract Market is ReentrancyGuard {
         bool exists;
         bool completed;
         uint256 id;
+        uint256 date;
     }
 
     uint256 public listingFee = 0.00024 ether;
+
     event EventListed(string, uint256);
+
     event EventTicketPurchased(
+        string eventName,
+        uint256 eventId,
         address ticketAddress,
         address purchaserAddress,
         uint256 ticketId
     );
+
+    //represents a mapping of events to the eventId
     mapping(uint256 => EventDetails) public eventsList;
 
-    mapping(address => EventDetails[]) public eventToUserMapping;
+    //represents a mapping of events to an organizer
+    mapping(address => EventDetails[]) public eventToOrganizerMapping;
+
     EventDetails[] public allEvents;
 
     modifier onlyOwner() {
@@ -50,12 +63,14 @@ contract Market is ReentrancyGuard {
         uint256 _eventCapacity,
         bool _canResellTickets,
         uint256 _resellPercentage,
-        uint256 _ticketPrice
+        uint256 _ticketPrice,
+        uint256 _date
     ) public payable returns (address ticketAddress) {
         require(
             msg.value >= listingFee,
             "You cannot list an event without paying the listing fee"
         );
+
         //set up id for new event;
         _eventIds.increment();
         uint256 eventId = _eventIds.current();
@@ -85,7 +100,8 @@ contract Market is ReentrancyGuard {
             price: _ticketPrice,
             exists: true,
             completed: false,
-            id: eventId
+            id: eventId,
+            date: _date
         });
 
         //map eventid to event details struct
@@ -95,18 +111,20 @@ contract Market is ReentrancyGuard {
         emit EventListed(_eventName, eventId);
 
         //add event details to event array mapped to the current msg.sender
-        eventToUserMapping[msg.sender].push(details);
+        eventToOrganizerMapping[msg.sender].push(details);
+
         //add event to list of events;
         allEvents.push(details);
+
         return address(eventTicket);
     }
 
-    function getUserEvents(address organizer)
+    function getUsersEvents(address organizer)
         public
         view
         returns (EventDetails[] memory)
     {
-        return eventToUserMapping[organizer];
+        return eventToOrganizerMapping[organizer];
     }
 
     function getAllEvents() public view returns (EventDetails[] memory) {
@@ -124,13 +142,65 @@ contract Market is ReentrancyGuard {
         address txAddress = eventsList[eventId].ticketAddress;
         uint256 ticketPrice = eventsList[eventId].price;
         require(
-            msg.value > ticketPrice,
+            msg.value >= ticketPrice,
             "Value provided is less than ticket price"
         );
         eventsList[eventId].organizer.transfer(msg.value);
 
         Ticket ticket = Ticket(txAddress);
-        uint256 id = ticket.createToken(purchaserFullname, msg.sender);
-        emit EventTicketPurchased(txAddress, msg.sender, id);
+        try ticket.createToken(purchaserFullname, msg.sender) returns (
+            uint256 id
+        ) {
+            emit EventTicketPurchased(
+                eventsList[eventId].name,
+                eventId,
+                txAddress,
+                msg.sender,
+                id
+            );
+        } catch Error(string memory reason) {
+            if (
+                keccak256(bytes(reason)) ==
+                keccak256(
+                    bytes("Tickets for this event are currently sold out")
+                )
+            ) {
+                //update event details to show sold out
+                eventsList[eventId].soldOut = true;
+            }
+            revert(reason);
+        }
     }
+
+    // function resellTicket(
+    //     uint256 eventId,
+    //     uint256 ticketId,
+    //     address buyer
+    // ) public payable {
+    //     //get event
+    //     EventDetails memory details = eventsList[eventId];
+    //     require(details.exists == true, "Invalid event Id provided");
+
+    //     //initialize ticket contract
+    //     Ticket ticketContract = Ticket(details.ticketAddress);
+
+    //     //calculate percentages
+    //     uint256 percentageCut = ticketContract.resellPercentage();
+    //     uint256 saleValue = msg.value;
+    //     uint256 organizerCut = saleValue.div(100).mul(percentageCut);
+    //     uint256 houseCut = saleValue.div(100).mul(1);
+    //     uint256 sellerCut = saleValue.sub(organizerCut).sub(houseCut);
+
+    //     //transfer value
+    //     details.organizer.transfer(organizerCut);
+    //     owner.transfer(houseCut);
+    //     address payable sellerPayableAddress = payable(msg.sender);
+    //     sellerPayableAddress.transfer(sellerCut);
+
+    //     try ticketContract.resellTicket(ticketId, buyer) {
+    //         //do some stuff here
+    //     } catch Error(string memory reason) {
+    //         revert(reason);
+    //     }
+    // }
 }

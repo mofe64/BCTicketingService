@@ -33,10 +33,14 @@ contract Ticket is ERC721 {
         );
         _;
     }
+    modifier guestCanResell() {
+        require(canResell == true, "This Ticket cannot be resold");
+        _;
+    }
 
-    event TicketsSoldOut(uint256);
-    event TicketSale(uint256, address);
-    event TicketResale(uint256, address, address);
+    event TicketsSoldOut(uint256 timeStamp);
+    event TicketSale(uint256 ticketId, address to);
+    event TicketResale(uint256 ticketId, address from, address to);
 
     constructor(
         address _dealerAddress,
@@ -75,5 +79,15 @@ contract Ticket is ERC721 {
             emit TicketsSoldOut(block.timestamp);
         }
         return ticketId;
+    }
+
+    function resellTicket(uint256 ticketId, address buyer)
+        public
+        guestCanResell
+    {
+        bool ticketExists = _exists(ticketId);
+        require(ticketExists == true, "Ticket id provided does not exist");
+        safeTransferFrom(msg.sender, buyer, ticketId);
+        emit TicketResale(ticketId, msg.sender, buyer);
     }
 }
